@@ -6,7 +6,7 @@
 
 LOG_MODULE_REGISTER(rtc, LOG_LEVEL_INF);
 
-/* nRF RTC0 peripheral — clocked by 32.768 kHz LFXO crystal */
+/* nRF RTC0 peripheral, clocked by 32.768 kHz LFXO crystal */
 #define RTC_DEV DEVICE_DT_GET(DT_NODELABEL(rtc0))
 
 static const struct device *rtc_dev;

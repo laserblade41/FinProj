@@ -1,5 +1,5 @@
 /*
- * Modular expansion port — enumeration state machine and poll loop.
+ * Modular expansion port: enumeration state machine and poll loop.
  *
  * ABSENT -> ENUMERATING -> ACTIVE, falling back to ABSENT on repeated NACK.
  *
@@ -134,7 +134,7 @@ static int parse_tlvs(const uint8_t *desc, uint8_t desc_len, uint8_t n_tlv)
             break;
 
         default:
-            /* Unknown TLV types are skipped, not rejected — that is what
+            /* Unknown TLV types are skipped, not rejected, that is what
              * makes the descriptor forward-extensible. */
             LOG_DBG("TLV %u: skipping unknown type 0x%02x", i, type);
             break;
@@ -176,7 +176,7 @@ static int enumerate(void)
 
     const uint8_t desc_len = desc[FWMP_REG_DESC_LEN];
 
-    /* Bound the length before trusting it: it must be big enough to contain
+    /* Bound the length before trusting it, it must be big enough to contain
      * the header and CRC, and must fit our buffer. */
     if (desc_len < FWMP_DESC_HDR_LEN + FWMP_DESC_CRC_LEN ||
         desc_len > FWMP_DESC_MAX_LEN) {
@@ -223,7 +223,7 @@ static int enumerate(void)
 /* Poll STATUS and pull a fresh input report if one is waiting. */
 static int poll_report(void)
 {
-    uint8_t hdr[2];  /* STATUS, SEQ — adjacent, so one read gets both */
+    uint8_t hdr[2];  /* STATUS, SEQ, adjacent, so one read gets both */
     int ret;
 
     if (!(info.caps & FWMP_CAP_INPUT) || info.in_len == 0) {

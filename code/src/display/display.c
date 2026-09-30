@@ -22,7 +22,7 @@ static const struct device *display_dev =
 static const struct device *backlight_dev =
     DEVICE_DT_GET(DT_NODELABEL(backlight));
 
-/* Inactivity timeout — turns backlight off after DISPLAY_TIMEOUT_MS */
+/* Inactivity timeout, turns backlight off after DISPLAY_TIMEOUT_MS */
 static struct k_work_delayable backlight_off_work;
 static bool backlight_on;
 
