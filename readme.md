@@ -104,7 +104,9 @@ code/
 ```
 
 ### Building
-
+```
+IMPORTANT: the board itself does not include a bootloader to flash the firmware, in our case we used the one in the nRF5340DK.
+```
 1. Install the [nRF Connect SDK](https://docs.nordicsemi.com/bundle/ncs-latest/page/nrf/installation.html) **v3.2.1** and open an NCS shell.
 2. Build and flash:
 
