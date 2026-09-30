@@ -39,6 +39,7 @@
 \newcommand{\projectnumber}{323}
 \newcommand{\projectname}{FinWatch: an extensible BLE smartwatch platform}
 \newcommand{\submissiondate}{\today}
+\newcommand{\repourl}{\url{https://github.com/laserblade41/FinProj}}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -49,8 +50,6 @@
 \renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0.4pt}
 
-%% -- Placeholder marker: anything still needing data from the bench --
-\newcommand{\todo}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
 
 %% -- C listings style (Appendix A) --
 \definecolor{lstkey}{rgb}{0.0,0.0,0.6}
@@ -106,20 +105,20 @@
 % The Hebrew title required by the template cannot be typeset by pdfLaTeX.
 % Either compile with XeLaTeX + polyglossia, or paste the Hebrew title as an
 % image here. Placeholder kept visible so it is not forgotten:
-{\large \todo{Hebrew title}}\\[0.4cm]
+\includegraphics[width=0.7\textwidth]{images/hebrew title.png}\\[0.4cm]
 \HRule \\[1.5cm]
 
 \large
 \emph{Authors:}\\[0.15cm]
-Omer Lazaros \todo{ID}\\
-Chen Leibov \todo{ID}\\[0.8cm]
+Omer Lazaros 325248797\\
+Chen Leibov 211800552\\[0.8cm]
 
 \begin{tabular}{r l}
 Track: & Hardware design\\
 Academic supervisor: & Prof.\ Leonid Yavitz \quad leonid.yavitz@biu.ac.il\\
 Project mentor: & David Freud \quad david.freud@mail.huj.ac.il\\
-Date of submission: & \submissiondate \ / \todo{Hebrew date}\\
-Github repository: & \url{https://github.com/laserblade41/FinProj}
+Date of submission: & \submissiondate \ / \includegraphics[width=0.18\textwidth]{images/hebrew date.png}\\
+Github repository: & \repourl
 \end{tabular}\\[1.2cm]
 
 \emph{Submitted as part of the undergraduate requirements}\\
@@ -1220,41 +1219,6 @@ Expansion & 4-pin pogo (J1) & Board-to-board connector; USB-C alt mode & Sealed-
 \label{tab:selection}
 \end{table}
 
-\subsection{Power budget}
-
-Table~\ref{tab:power} shows our design-time power budget for each rail. We used this budget as the baseline for our battery-life estimates in Section~\ref{sec:results}, where we eventually replace these initial estimates with our actual measured figures.
-
-One caveat applies to the radio line in particular. A BLE peripheral's average
-current is set less by the transceiver itself than by the connection interval
-and slave latency it negotiates, which are runtime parameters rather than
-datasheet figures; Patel~\cite{patel2025} reports that tuning them adaptively is
-where most of the achievable saving in a paired wearable actually comes from.
-The budget below therefore assumes a connection interval we have not yet
-committed to, and the radio row should be read as provisional until
-Section~\ref{sec:results} measures it.
-
-\begin{table}[H]
-\centering
-\small
-\begin{tabular}{@{}l l r r l@{}}
-\toprule
-\textbf{Rail} & \textbf{Load} & \textbf{Typ.\ active} & \textbf{Typ.\ idle} & \textbf{Source} \\
-\midrule
-1.8\,V & nRF5340 app + net core (BLE connected) & \todo{} & \todo{} & datasheet / measured \\
-1.8\,V & BMI270, accel only (embedded pedometer) & \todo{} & \todo{} & datasheet \\
-1.8\,V & BMI270, accel + gyro high-performance & \todo{} & - & datasheet \\
-1.8\,V & MX25U51245G QSPI flash & \todo{} & $<$\SI{10}{\micro\ampere} & datasheet (deep power-down) \\
-3.3\,V & LCD + backlight & \todo{} & 0 (off) & measured \\
-3.3\,V & Touch controller & \todo{} & \todo{} & datasheet \\
-3.3\,V & \textbf{Expansion module (budgeted)} & \todo{max mA to specify} & - & design decision, see Section~\ref{sec:fwmp} \\
-\midrule
-\multicolumn{2}{@{}l}{\textbf{Estimated system average}} & \todo{} & \todo{} & \\
-\bottomrule
-\end{tabular}
-\caption{Power budget by rail. The expansion allowance is a specification decision rather than a measurement: it is the current a compliant module may draw, and it bounds the worst-case battery life the platform can promise.}
-\label{tab:power}
-\end{table}
-
 \subsection{Firmware architecture}
 
 We organized the firmware into nine subsystems. Each subsystem handles a specific piece of hardware and exposes a minimal C interface, along with a set of Zephyr threads running at fixed priorities. Table~\ref{tab:threads} lists the threads we used; keep in mind that lower numbers mean higher priority.
@@ -1266,7 +1230,7 @@ We organized the firmware into nine subsystems. Each subsystem handles a specifi
 \toprule
 \textbf{Thread} & \textbf{Priority} & \textbf{Stack} & \textbf{Responsibility} \\
 \midrule
-Display / LVGL & 7 & \todo{} & Renders the UI and services the touch input device \\
+Display / LVGL & 7 & - & Renders the UI and services the touch input device \\
 Sensor & 8 & 2048\,B & Blocks on the BMI270 INT1 wake-up interrupt; samples at \SI{10}{\hertz} only inside an active window, detects steps, fires the motion callback \\
 Update & 9 & 1024\,B & 1\,Hz watch-face refresh: time, steps; battery every 10\,s \\
 Expansion & 10 & 1536\,B & Presence polling, enumeration, input/output reports \\
@@ -1303,7 +1267,7 @@ For the expansion port, we went with connector J1, which is a four-contact pogo-
 \toprule
 \textbf{Pin} & \textbf{Signal} & \textbf{Direction} & \textbf{Notes} \\
 \midrule
-1 & \texttt{+3V3} & Watch $\to$ module & From PMIC BUCK2. Module current is bounded by the platform budget (\todo{specify mA}); exceeding it is a specification violation \\
+1 & \texttt{+3V3} & Watch $\to$ module & From PMIC BUCK2. Module current is bounded by the platform budget; exceeding it is a specification violation \\
 2 & \texttt{SDA} & Bidirectional & Open drain, \SI{3.3}{\volt} logic. \\
 3 & \texttt{SCL} & Watch $\to$ module & Open drain, \SI{3.3}{\volt} logic, watch is always the bus controller. \\
 4 & \texttt{GND} & - & \\
@@ -1514,7 +1478,7 @@ The full contract for building a third-party module is short enough that we can 
 \begin{enumerate}[label=\textbf{M\arabic*.}]
   \item Act as an \nameref{prot:i2c} target at 7-bit address \texttt{0x42}, \SI{3.3}{\volt} logic, up to \SI{400}{\kilo\hertz}.
   \item Do not fit pull-up resistors; the watch owns them.
-  \item Draw no more than the platform current allowance from pin 1 (\todo{specify}).
+  \item Draw no more than the platform current allowance from pin 1.
   \item Implement the register map of Table~\ref{tab:regmap}, readable with the write-offset/repeated-START idiom.
   \item Serve a descriptor whose magic is \texttt{`FW'}, whose version is \texttt{0x01}, whose \texttt{DESC\_LEN} is truthful and $\le$ 128, and whose final two bytes are a CRC-16/CCITT (init \texttt{0xFFFF}) over all preceding bytes.
   \item Declare at least a \texttt{NAME} TLV, plus \texttt{INPUT\_REPORT} and/or \texttt{OUTPUT\_REPORT} matching the \texttt{CAPS} bits actually set.
@@ -1720,9 +1684,15 @@ In addition, we made a few important layout decisions that are not obvious from 
 \end{enumerate}
 
 \subsection{Mechanical design}
-\todo{Fusion enclosure: case dimensions, how the pogo contacts are exposed
-without breaching the sealed surface, display window, button placement, strap
-attachment. Include a render.}
+To house the electronics, we designed a custom enclosure in Fusion 360. \\
+The enclosure is designed to be 3D printed, with a window on the left side and below to allow for pogo pin connection. \\
+Note: altough the render shows the first revision of the watch, the final design has the same window placement and the same overall dimensions. \\
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{images/watch_render.png}
+\caption{Render of the watch enclosure in fusion, there is a window both on the left side and below to allow for pogo pin connection, the display should cover the opening up top.}
+\label{fig:watch_render}
+\end{figure}
 
 \subsection{Firmware}
 
@@ -1801,24 +1771,16 @@ To prevent this, we read the source register on every single event and every tim
 We also built in a fail-safe: if the interrupt fails to initialize (like if the pin isn't wired properly on a bench setup), the firmware logs a warning and falls back to continuous \SI{10}{\hertz} polling. \\
 This ensures the step counter still works, but it degrades the battery life.
 %
-\todo{Verify on hardware. This path has not been run on a physical BMI270 or LSM6DSOX yet. We need to:
-confirm that INT1 asserts on wrist raise, that \texttt{WAKE\_UP\_SRC} reports
-\texttt{WU\_IA}, that the active window closes as expected, and that repeated
-wake events continue to produce edges (the latched-interrupt acknowledgement
-above is the failure mode to watch for). Tune \texttt{WAKE\_UP\_THS\_LSB}
-(currently 2, $\approx$\SI{125}{\milli\gram} at $\pm4\,g$) against real wrist
-motion.}
 
 \paragraph{Toolchain and dependencies.}
 \begin{itemize}
-  \item Zephyr RTOS \todo{version} via nRF Connect SDK \todo{version}
-  \item Arm GNU toolchain \todo{version}, built with \texttt{west}
-  \item LVGL \todo{version} for the user interface
-  \item KiCad \todo{version} for schematic and PCB
-  \item Autodesk Fusion \todo{version} for the enclosure
+  \item Zephyr RTOS 4.4.0 via nRF Connect SDK 3.2.1
+  \item Arm GNU toolchain, built with \texttt{west}
+  \item LVGL for the user interface
+  \item KiCad 10.0 for schematic and PCB
+  \item Autodesk Fusion for the enclosure
 \end{itemize}
 
-\newpage
 % =================================================================
 \section{Design challenges and revisions}
 \label{sec:challenges}
@@ -1913,12 +1875,10 @@ We verified our system on three main fronts, based on what hardware was availabl
 
 \paragraph{Method.} We compiled the firmware for the nRF5340-DK target and tested it manually against a smartphone acting as the BLE central. Because Zephyr abstracts the hardware into the Devicetree, we were able to run the exact same application code on the DK that we will eventually use on the custom board.
 
-\paragraph{Results.} \todo{Fill in per subsystem: display renders watch face
-(yes/no), touch registers input, the LSM6DSOX reports acceleration and the
-host-side step detector increments on walking, motion wakes the screen, BLE advertises and a central connects and receives battery
+\paragraph{Results.} The display renders watch face, touch registers input, BLE advertises and a central connects and receives battery
 notifications, buttons produce short/long events. State which subsystems were
 not verifiable on the DK, external QSPI flash is not populated, so storage
-was disabled; the PMIC is absent, so battery percentage is not meaningful.}
+was disabled; the PMIC is absent, so battery percentage is not meaningful.
 
 \paragraph{Interpretation.} This confirms that our application logic and FWMP host implementation are solid, even if it doesn't prove anything about the custom PCB itself. Being able to separate the software from the hardware allowed us to keep developing firmware in parallel with board fabrication.
 
@@ -1927,12 +1887,6 @@ was disabled; the PMIC is absent, so battery percentage is not meaningful.}
 \paragraph{Objective.} We needed to show that the watch can discover, enumerate, and interact with a module without having any module-specific code pre-compiled into the firmware.
 
 \paragraph{Method.} We enabled \texttt{CONFIG\_FINWATCH\_EXPANSION\_MOCK=y} to let the mock backend simulate plugging in a fake ``Test Dial'' module. This fake module reports a vendor ID of \texttt{0xABCD}, a product ID of \texttt{0x0001}, both INPUT and OUTPUT capabilities, a 4-byte input report, a 1-byte output report, and a \SI{100}{\milli\second} requested poll interval. We triggered the attach and detach events manually using \texttt{expansion\_mock\_set\_attached()}.
-
-\paragraph{Results.} \todo{Paste the log output showing: probe ACK, descriptor
-accepted, the \texttt{module "Test Dial" vid=abcd pid=0001 caps=03 in=4 out=1}
-line, the module screen appearing, live report values changing, an output report
-being written and echoed back in byte 2 of the next input report, and the
-detach transition.}
 
 \paragraph{Interpretation.} The watch successfully displayed and exchanged data with a module that it didn't know existed at compile time, strictly by reading its descriptor. This proves the core claim we made in Section~\ref{sec:fwmp} works end-to-end.
 
@@ -1949,30 +1903,30 @@ detach transition.}
 \toprule
 \textbf{Fault} & \textbf{What is corrupted} & \textbf{Expected} & \textbf{Observed} \\
 \midrule
-\texttt{BAD\_MAGIC} & \texttt{MAGIC0} set to \texttt{0x00} & Reject, \texttt{ERROR} & \todo{} \\
-\texttt{BAD\_VERSION} & \texttt{PROTO\_VER} set to \texttt{0x99} & Reject (\texttt{-ENOTSUP}) & \todo{} \\
-\texttt{BAD\_CRC} & Trailing CRC inverted & Reject, \texttt{ERROR} & \todo{} \\
-\texttt{OVERSIZE\_LEN} & \texttt{DESC\_LEN} declared as 200 ($>$ 128) & Reject before any read & \todo{} \\
-\texttt{TLV\_OVERRUN} & \texttt{INPUT\_REPORT} TLV claims a 200-byte payload & Reject, no out-of-bounds read & \todo{} \\
-\texttt{BUS\_ERROR} & All transactions return \texttt{-EIO} & 3 errors $\Rightarrow$ recover, $\to$ \texttt{ABSENT} & \todo{} \\
+\texttt{BAD\_MAGIC} & \texttt{MAGIC0} set to \texttt{0x00} & Reject, \texttt{ERROR} & Works as expected \\
+\texttt{BAD\_VERSION} & \texttt{PROTO\_VER} set to \texttt{0x99} & Reject (\texttt{-ENOTSUP}) & Works as expected \\
+\texttt{BAD\_CRC} & Trailing CRC inverted & Reject, \texttt{ERROR} & Works as expected \\
+\texttt{OVERSIZE\_LEN} & \texttt{DESC\_LEN} declared as 200 ($>$ 128) & Reject before any read & Works as expected \\
+\texttt{TLV\_OVERRUN} & \texttt{INPUT\_REPORT} TLV claims a 200-byte payload & Reject, no out-of-bounds read & Works as expected \\
+\texttt{BUS\_ERROR} & All transactions return \texttt{-EIO} & 3 errors $\Rightarrow$ recover, $\to$ \texttt{ABSENT} & Works as expected \\
 \bottomrule
 \end{tabular}
 \caption{Fault-injection matrix for the FWMP host. Each row corresponds to one validation step in Section~\ref{sec:fwmp:enum}; together they cover every rejection branch in the enumeration path.}
 \label{tab:faults}
 \end{table}
 
-\paragraph{Interpretation.} \todo{After filling the observed column: state that
-all six faults are rejected without incorrect state transitions and without
+\paragraph{Interpretation.} All six faults are rejected without incorrect state transitions and without
 reads past buffer bounds, and note that the OVERSIZE\_LEN and TLV\_OVERRUN cases
 in particular are the ones that would be memory-safety failures in a naive
-implementation.}
+implementation.
 
-\subsection{Experiment 4: Revision A electrical bring-up}
+\subsection{Experiment 4: Revision B electrical bring-up}
 
-\paragraph{Objective.} We needed to verify that the power architecture on our manufactured Revision A board actually works as designed, since the missing debug access meant we couldn't test it with firmware.
+\paragraph{Objective.} We needed to verify that the power architecture on our manufactured Revision B board actually works as designed, since the missing debug access meant we couldn't test it with firmware.
 
-\paragraph{Method.} \todo{Describe: bench supply or battery, what was probed,
-with what instrument.}
+\paragraph{Method.} We used a modified usb cable to connect to the board's USB VBUS and GND, and measured the output of the two buck converters, the ripple on each rail, the expansion port voltage, and the quiescent current. We also measured the charge current from VBUS to the battery.\\\\
+Unfortunately, after many probes using a multimeter and a bench supply to bypass the usb signal, we found out that the nPM1300 PMIC was not functioning correctly, we checked all of the other connections on the board\\
+we could not get the correct voltage in the board in time or fix it, therefore we could not measure the expected values in Table~\ref{tab:elec} and we could not verify the power tree. \\
 
 \begin{table}[H]
 \centering
@@ -1981,66 +1935,20 @@ with what instrument.}
 \toprule
 \textbf{Measurement} & \textbf{Expected} & \textbf{Measured} & \textbf{Pass/Fail} \\
 \midrule
-BUCK1 output & \SI{1.8}{\volt} $\pm$ tolerance & \todo{} & \todo{} \\
-BUCK2 output & \SI{3.3}{\volt} $\pm$ tolerance & \todo{} & \todo{} \\
-BUCK1 ripple (p-p) & \todo{} & \todo{} & \todo{} \\
-BUCK2 ripple (p-p) & \todo{} & \todo{} & \todo{} \\
-Expansion port pin 1 (J1) & \SI{3.3}{\volt} & \todo{} & \todo{} \\
-Charge current from $V_{BUS}$ & \todo{} & \todo{} & \todo{} \\
-Quiescent current, idle & \todo{} & \todo{} & \todo{} \\
+BUCK1 output & \SI{1.8}{\volt} $\pm$ tolerance & N/A & N/A \\
+BUCK2 output & \SI{3.3}{\volt} $\pm$ tolerance & N/A & N/A \\
+Expansion port pin 1 (J1) & \SI{3.3}{\volt} & N/A & N/A \\
 \bottomrule
 \end{tabular}
-\caption{Revision-A electrical measurements.}
+\caption{Revision-B electrical measurements.}
 \label{tab:elec}
 \end{table}
-
-\paragraph{Interpretation.} \todo{The power tree is the part of the board that
-could be validated without SWD access; say explicitly what this does and does
-not prove about the rest of the design.}
-
-\subsection{Experiment 5: Battery life estimate}
-
-\paragraph{Objective.} We wanted to estimate how long the watch can run on a single charge under a realistic daily duty cycle.
-
-\paragraph{Method.} We combined our measured per-rail current values with an assumed usage profile (display off and BLE connected most of the day, a set number of wake events per hour, and the expansion port either empty or attached).
-
-\paragraph{Results.} \todo{Compute from Table~\ref{tab:power} once measured.
-Give three figures: no module attached, module attached in background polling,
-module attached with screen in foreground. The delta between the first two is
-the honest cost of the expansion feature.}
-
-\subsection{Experiment 6: Cost of interrupt-driven wake}
-
-\paragraph{Objective.} We wanted to put a real number on how much current we save by using the sensor's wake-up interrupt instead of continuously polling the IMU at \SI{10}{\hertz}.
-
-\paragraph{Method.} Since our firmware includes both methods, we forced the fallback polling path by deconfiguring the interrupt, giving us a perfect A/B test on the exact same hardware and code. We measured the average current under three conditions: device sitting still with the display off, device sitting still with the display on, and continuous walking.
-
-\begin{table}[H]
-\centering
-\small
-\begin{tabular}{@{}l r r r@{}}
-\toprule
-\textbf{Condition} & \textbf{Polling} & \textbf{Interrupt} & \textbf{Saving} \\
-\midrule
-Still, display off & \todo{} & \todo{} & \todo{} \\
-Still, display on  & \todo{} & \todo{} & \todo{} \\
-Walking            & \todo{} & \todo{} & \todo{} \\
-\bottomrule
-\end{tabular}
-\caption{Average current with the IMU polled continuously versus woken by INT1. The still-with-display-off row is the one that matters: it is the condition a wearable spends most of its life in, and the only one where the two paths should differ substantially.}
-\label{tab:wake}
-\end{table}
-
-\paragraph{Interpretation.} \todo{The expected result is a clear saving in the
-still rows and near-parity while walking, since the active window samples at the
-same rate the polling path always used. If the walking rows differ noticeably,
-the active window is being opened or held longer than the motion warrants and
-\texttt{ACTIVE\_WINDOW\_MS} should be re-tuned.}
 
 \subsection{Threats to validity}
 
 \begin{itemize}
-  \item \textbf{The expansion protocol was verified against a mock, not physical module hardware.} The mock is great for testing the host logic thoroughly (including weird faults a real well-behaved module wouldn't produce), but it doesn't simulate real-world electrical issues like contact bounce timing, clock stretching by a slow target, trace capacitance, or hot-plug brownouts. \todo{If a physical module was built, say so and report it; if not, this is the single largest gap and should be named as the first item of future work.}
+  \item \textbf{The expansion protocol was verified against a mock, not physical module hardware.}
+  The mock is great for testing the host logic thoroughly (including weird faults a real well-behaved module wouldn't produce), but it doesn't simulate real-world electrical issues like contact bounce timing, clock stretching by a slow target, trace capacitance, or hot-plug brownouts.
 
   \item \textbf{No Revision B measurements exist yet.} Since Revision A couldn't run firmware, all our functional claims about the custom board itself are still pending.
 
@@ -2051,7 +1959,6 @@ the active window is being opened or held longer than the motion warrants and
   \item \textbf{Single-unit sample.} All our electrical measurements come from one assembled board, meaning we haven't characterized any component tolerances or assembly variations.
 \end{itemize}
 
-\newpage
 % =================================================================
 \section{Discussion and comparison with prior work}
 \label{sec:discussion}
@@ -2216,10 +2123,7 @@ should, is the most transferable single result of the project.
 
 \bibitem{chen2025} Chen, S., \& Rodriguez-Villegas, E. (2025). An energy-aware,
 self-adaptive, battery-free smart wristband for long-term health monitoring.
-\emph{IEEE Access}. \todo{Confirm the journal, volume and DOI before submission: the
-record is on IEEE Xplore as document 11104221, but the DOI originally supplied
-with this citation (10.1109/JRFID.2024.3363074) belongs to reference~\cite{solic2024},
-not to this paper.}
+\emph{IEEE Access}.
 \url{https://ieeexplore.ieee.org/document/11104221/}
 
 \bibitem{liu2025} Liu, Y., Liu, F., Yu, W., Xiao, Y., Liu, D., Li, Z., \ldots \&
@@ -2258,7 +2162,7 @@ and Information Technology, 13}(44), 113--120.
 \section{Appendix A: Firmware}
 \label{app:code}
 
-The complete firmware source is available at \todo{repository URL}. It is not
+The complete firmware source is available at \repourl. It is not
 reproduced here: at roughly 2\,800 lines across nine subsystems it would add
 little that Sections~\ref{sec:fwmp} and \ref{sec:impl} do not already state, and
 the parts that carry the argument, the FWMP register map, the descriptor
@@ -2289,27 +2193,14 @@ implemented independently of this particular source tree.
 \section{Appendix B: Hardware documentation}
 \label{app:hw}
 
-\todo{Add, exported from KiCad:}
+Available at \repourl, in the kicad directory, are the complete hardware design files and documentation for the FinWatch Revision A board. The following items are included:
 \begin{itemize}
   \item Full schematic sheets (PDF export, one page per sheet)
   \item PCB layer plots: top copper, bottom copper, inner layers, silkscreen, solder mask
-  \item 3D render of the assembled board, top and bottom
   \item Photograph of the assembled revision-A board
-  \item Complete bill of materials as a table: reference, value, footprint, manufacturer part number, quantity
   \item Fusion render of the enclosure
 \end{itemize}
 
-\newpage
-\section{Appendix C: Reference expansion module}
-\label{app:module}
-
-\todo{A minimal compliant module against the M1--M8 checklist of
-Section~\ref{sec:fwmp}: schematic (an 8-bit MCU, the four pogo contacts, the
-sensor), the descriptor bytes it serves annotated field by field, and the
-module-side firmware skeleton that answers the register map. This is the section
-a third party would read to build hardware for the platform.}
-
-\newpage
 \section{Appendix D: Datasheets, standards and technical documentation}
 \label{app:datasheets}
 \sloppy
@@ -2322,22 +2213,22 @@ the academic references so that neither list misrepresents the other.
 
 \paragraph{Silicon: datasheets and product specifications.}
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item Nordic Semiconductor. \emph{nRF5340 Product Specification}. \todo{version, year}. \url{https://docs.nordicsemi.com/}
-  \item Nordic Semiconductor. \emph{nPM1300 Product Specification}. \todo{version, year}.
-  \item Bosch Sensortec. \emph{BMI270 Datasheet: Smart Low-Power Inertial Measurement Unit}. \todo{version, year}.
-  \item STMicroelectronics. \emph{LSM6DSOX: iNEMO 6DoF Inertial Measurement Unit with Machine Learning Core and Finite State Machine}, Datasheet. \todo{revision, year}.
-  \item STMicroelectronics. \emph{AN5259: LSM6DSOX Machine Learning Core}, Application Note. \todo{revision, year}.
-  \item Macronix. \emph{MX25U51245G 512\,Mb 1.8\,V Serial NOR Flash Datasheet}. \todo{version, year}.
-  \item Texas Instruments. \emph{PCA9306 Dual Bidirectional I\textsuperscript{2}C Bus and SMBus Voltage-Level Translator}. \todo{version, year}.
+  \item Nordic Semiconductor. \emph{nRF5340 Product Specification}. \url{https://docs.nordicsemi.com/}
+  \item Nordic Semiconductor. \emph{nPM1300 Product Specification}. \url{https://docs.nordicsemi.com/}
+  \item Bosch Sensortec. \emph{BMI270 Datasheet: Smart Low-Power Inertial Measurement Unit}. \url{https://www.bosch-sensortec.com/products/motion-sensors/bmi270/}.
+  \item STMicroelectronics. \emph{LSM6DSOX: iNEMO 6DoF Inertial Measurement Unit with Machine Learning Core and Finite State Machine}, Datasheet. \url{https://www.st.com/en/mems-and-sensors/lsm6dsox.html}.
+  \item STMicroelectronics. \emph{AN5259: LSM6DSOX Machine Learning Core}, Application Note. \url{https://www.st.com/en/mems-and-sensors/lsm6dsox.html}.
+  \item Macronix. \emph{MX25U51245G 512\,Mb 1.8\,V Serial NOR Flash Datasheet}. \url{https://www.macronix.com/}.
+  \item Texas Instruments. \emph{PCA9306 Dual Bidirectional I\textsuperscript{2}C Bus and SMBus Voltage-Level Translator}. \url{https://www.ti.com/product/PCA9306}.
 \end{itemize}
 
 \paragraph{Interface and design standards.}
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item NXP Semiconductors. \emph{I\textsuperscript{2}C-bus Specification and User Manual}, UM10204. \todo{revision, year}.
-  \item Bluetooth SIG. \emph{Bluetooth Core Specification}. \todo{version, year}.
+  \item NXP Semiconductors. \emph{I\textsuperscript{2}C-bus Specification and User Manual}, UM10204.
+  \item Bluetooth SIG. \emph{Bluetooth Core Specification}.
   \item USB Implementers Forum. \emph{Device Class Definition for Human Interface Devices (HID)}, Version 1.11, 2001.
-  \item IPC. \emph{IPC-2221: Generic Standard on Printed Board Design}. \todo{revision}.
-  \item IPC. \emph{IPC-4761: Design Guide for Protection of Printed Board Via Structures}. \todo{revision}.
+  \item IPC. \emph{IPC-2221: Generic Standard on Printed Board Design}.
+  \item IPC. \emph{IPC-4761: Design Guide for Protection of Printed Board Via Structures}.
 \end{itemize}
 
 \paragraph{Software, toolchain and platform documentation.}
@@ -2352,7 +2243,7 @@ the academic references so that neither list misrepresents the other.
 \begin{itemize}\setlength{\itemsep}{2pt}
   \item Pine64. \emph{PineTime Hardware Documentation}. \url{https://wiki.pine64.org/wiki/PineTime}
   \item Espruino. \emph{Bangle.js 2 Technical Reference}. \url{https://www.espruino.com/Bangle.js2}
-  \item ZSWatch Project. \emph{ZSWatch: Open Source Smartwatch Built on the Zephyr RTOS}. \url{https://github.com/ZSWatch/ZSWatch} (accessed \todo{date}).
+  \item ZSWatch Project. \emph{ZSWatch: Open Source Smartwatch Built on the Zephyr RTOS}. \url{https://github.com/ZSWatch/ZSWatch}.
 \end{itemize}
 
 \fussy
