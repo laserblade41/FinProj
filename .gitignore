@@ -1,0 +1,23 @@
+.vscode/
+code/.claude
+code/.vscode
+code/build
+/prod
+report/presentation/summary.lyx
+report/presentation/summary.lyx~
+report/presentation/summary.pdf
+*.log
+*.out
+report/main.pre-docx-backup.tex
+report/main.synctex(busy)
+*.gz
+report/main.tex.bak
+report/main.toc
+report/MXBA_Final_Project_02.pdf
+report/Final_Project_Template_EN.pdf
+report/Guidelines for Final Presentation.pdf
+report/main.aux
+report/main.merged-backup.tex
+report/watch_thing_alt.kicad_sch
+report/main.merged-backup.tex
+report/report.zip

@@ -1,0 +1,392 @@
+/*
+ * Smartwatch board overlay — nRF5340 Application Core (Non-Secure / TF-M)
+ * Target: nRF5340 DK (nrf5340dk/nrf5340/cpuapp/ns) for bring-up / prototyping.
+ *
+ * RENAME THIS FILE (and the pins!) when moving to your custom PCB.
+ *
+ * ── nRF5340 DK pin map ───────────────────────────────────────────────────────
+ *  TAKEN by DK hardware:
+ *    UART0 console : P0.20 TX / P0.22 RX / P0.19 RTS / P0.21 CTS
+ *    UART1 arduino : P1.01 TX / P1.00 RX / P0.11 RTS / P0.10 CTS
+ *    QSPI int.flash: P0.13-P0.18
+ *    DK LEDs       : P0.28 LED0 / P0.29 LED1 / P0.30 LED2 / P0.31 LED3
+ *    DK Buttons    : P0.23 SW1  / P0.24 SW2  / P0.08 SW3  / P0.09 SW4
+ *    Arduino I2C   : P1.02 SDA / P1.03 SCL  (TWIM1 = secure under TF-M)
+ *    Arduino SPI   : P1.13 MOSI / P1.14 MISO / P1.15 SCK  ← disabled below
+ *    ADC / analog  : P0.04-P0.07 (A0-A3), P0.25 A4, P0.26 A5
+ *
+ *  All signals in this file use the Arduino header (P3) unless noted.
+ *
+ * ── Our pin assignments for DK bring-up ─────────────────────────────────────
+ *  I2C2 (TWIM2)  SDA P0.04 (A0)    SCL P0.05 (A1)
+ *  SPI4 (SPIM4)  MOSI P1.04 (D2)   SCK P1.05 (D3)   MISO P1.06 (D4)
+ *  I2C3 (TWIM3)  SDA P1.02 (D14)   SCL P1.03 (D15)  — expansion port
+ *  DISP_CS       P1.07 (D5)   — SPI4 cs-gpios[0]
+ *  FLASH_CS      P1.08 (D6)   — SPI4 cs-gpios[1]
+ *  DISP_DC       P1.09 (D7)
+ *  DISP_RST      P1.10 (D8)
+ *  DISP_BL       P1.11 (D9)
+ *  TOUCH_IRQ     P0.06 (A2)
+ *  TOUCH_RST     P0.07 (A3)
+ *  PMIC_INT      P1.12 (D10)
+ *  IMU_INT1      P1.13 (D11)
+ *  BTN0          P1.14 (D12)
+ *  BTN1          P1.15 (D13)
+ *
+ * ── Peripheral / bus map ─────────────────────────────────────────────────────
+ * nRF5340 groups serial peripherals into "boxes" by base address; nodes in
+ * the same box are mutually exclusive (build-time BUILD_ASSERT enforces it).
+ *
+ *  box 0 @8000  i2c0/spi0/uart0 — UARTE0 = console (DK default)
+ *  box 1 @9000  i2c1/spi1/uart1 — TF-M secure logging UART (unavailable to NS)
+ *  box 2 @b000  i2c2/spi2/uart2 — TWIM2 = main I2C: CST816S + BMI270 + npm1300
+ *  box 3 @c000  i2c3/spi3/uart3 — TWIM3 = expansion port (SPIM3 disabled)
+ *  box 4 @a000  spi4 only       — SPIM4 = GC9A01 display + MX25U51245G flash
+ *
+ * SPIM4 is the only box with no I2C/UART sibling, and is the only instance
+ * that runs at 32 MHz (the rest cap at 8 MHz) — so the display lives there
+ * and box 3 is left free for the expansion I2C.
+ *
+ * EXPANSION PORT PINS: production board uses P0.30/P0.31; the DK uses
+ * P1.02/P1.03 because P0.30/P0.31 have LEDs wired to them on the DK.
+ * See the i2c3_default pinctrl block below.
+ */
+
+#include <zephyr/dt-bindings/pinctrl/nrf-pinctrl.h>
+#include <zephyr/dt-bindings/display/panel.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/* ======================================================================
+ * Pin-control groups
+ * ====================================================================== */
+
+&pinctrl {
+
+    /* ---- I2C2 (main bus): A0 / A1 on Arduino header ---- */
+    i2c2_default: i2c2_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 0, 4)>,   /* P0.04 — Arduino A0 */
+                    <NRF_PSEL(TWIM_SCL, 0, 5)>;    /* P0.05 — Arduino A1 */
+            bias-pull-up;
+        };
+    };
+    i2c2_sleep: i2c2_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 0, 4)>,
+                    <NRF_PSEL(TWIM_SCL, 0, 5)>;
+            low-power-enable;
+        };
+    };
+
+    /*
+     * SPI4 (SPIM4) — display + flash on D2/D3/D4 (Arduino digital header).
+     *
+     * Moved here from SPIM3 to free peripheral box 3 (i2c3/spi3/uart3) for
+     * the expansion port's TWIM3.  SPIM4 is its own box (@a000, no i2c4/uart4
+     * sibling) so it conflicts with nothing.
+     *
+     * Bonus: SPIM4 tops out at 32 MHz vs 8 MHz for SPIM0-3, so the display
+     * flush is 4x faster than it was on SPIM3.
+     */
+    /*
+     * NOTE: deliberately NOT named spi4_default/spi4_sleep — the DK's
+     * nrf5340_cpuapp_common-pinctrl.dtsi already defines those (at
+     * P1.13-P1.15 for arduino_spi).  Reusing the names would merge into
+     * those nodes and override properties piecemeal, which is easy to
+     * misread.  Distinct names leave the DK's states unused and inert.
+     */
+    spi4_disp_default: spi4_disp_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_MOSI, 1, 4)>,  /* P1.04 — Arduino D2 */
+                    <NRF_PSEL(SPIM_SCK,  1, 5)>;   /* P1.05 — Arduino D3 */
+        };
+        group2 {
+            psels = <NRF_PSEL(SPIM_MISO, 1, 6)>;  /* P1.06 — Arduino D4 (flash read) */
+            bias-pull-down;
+        };
+    };
+    spi4_disp_sleep: spi4_disp_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_MOSI, 1, 4)>,
+                    <NRF_PSEL(SPIM_SCK,  1, 5)>,
+                    <NRF_PSEL(SPIM_MISO, 1, 6)>;
+            low-power-enable;
+        };
+    };
+
+    /*
+     * I2C3 (TWIM3) — modular expansion port (pogo pins).
+     *
+     * PRODUCTION BOARD: SDA = P0.30, SCL = P0.31.
+     * DK BRING-UP:      SDA = P1.02, SCL = P1.03 (Arduino D14/D15).
+     *
+     * P0.30/P0.31 are LED2/LED3 on the nRF5340 DK, with real LEDs and series
+     * resistors wired to the rail.  I2C is open-drain and needs the line to
+     * float high through a pull-up; the LED path to VDD injects current and
+     * fights a proper logic low.  So the DK uses the Arduino I2C pins, which
+     * are free because i2c1 (arduino_i2c) is disabled below.
+     *
+     * When moving to the custom PCB, swap the psels here to (0, 30)/(0, 31).
+     */
+    i2c3_default: i2c3_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 2)>,   /* P1.02 — Arduino D14/SDA */
+                    <NRF_PSEL(TWIM_SCL, 1, 3)>;    /* P1.03 — Arduino D15/SCL */
+            bias-pull-up;
+        };
+    };
+    i2c3_sleep: i2c3_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SDA, 1, 2)>,
+                    <NRF_PSEL(TWIM_SCL, 1, 3)>;
+            low-power-enable;
+        };
+    };
+};
+
+/* ======================================================================
+ * RTC0 — 32.768 kHz counter for the RTC module (rtc.c)
+ * Both rtc0/rtc1 are disabled in the nRF5340 base DTSI; enable rtc0 here.
+ * ====================================================================== */
+
+&rtc0 {
+    status = "okay";
+};
+
+/* ======================================================================
+ * Disable peripherals that conflict with our pin assignments
+ * ====================================================================== */
+
+/* TWIM1 = peripheral 9, SECURE under TF-M */
+&i2c1 {
+    status = "disabled";
+};
+
+/*
+ * SPIM3 is now unused — the display and flash moved to SPIM4 so that this
+ * peripheral box (i2c3/spi3/uart3 @c000) is free for the expansion TWIM3.
+ */
+&spi3 {
+    status = "disabled";
+};
+
+/* ======================================================================
+ * I2C2 — main bus: touch + PMIC + IMU
+ * ====================================================================== */
+
+&i2c2 {
+    status = "okay";
+    pinctrl-0 = <&i2c2_default>;
+    pinctrl-1 = <&i2c2_sleep>;
+    pinctrl-names = "default", "sleep";
+    clock-frequency = <400000>;  /* 400 kHz (fast mode) */
+
+    /* ---- CST816S capacitive touch controller ---- */
+    cst816s: cst816s@15 {
+        compatible = "hynitron,cst816s";
+        reg = <0x15>;
+        status = "okay";
+        irq-gpios = <&gpio0 6 GPIO_ACTIVE_LOW>;    /* P0.06 — Arduino A2 */
+        rst-gpios = <&gpio0 7 GPIO_ACTIVE_LOW>;    /* P0.07 — Arduino A3 */
+    };
+
+    /* ---- npm1300 PMIC ---- */
+    npm1300: pmic@6b {
+        compatible = "nordic,npm1300";
+        reg = <0x6b>;
+        status = "okay";
+        host-int-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;  /* P1.12 — Arduino D10 */
+
+        npm1300_buck1: BUCK1 {
+            compatible = "nordic,npm1300-regulator";
+        };
+
+        npm1300_buck2: BUCK2 {
+            compatible = "nordic,npm1300-regulator";
+        };
+
+        npm1300_ldo1: LDO1 {
+            compatible = "nordic,npm1300-regulator";
+        };
+
+        npm1300_ldo2: LDO2 {
+            compatible = "nordic,npm1300-regulator";
+        };
+
+        /* Charger — update current-microamp to ~0.5C of your battery */
+        npm1300_charger: charger {
+            compatible = "nordic,npm1300-charger";
+            term-microvolt          = <4200000>;
+            term-warm-microvolt     = <4000000>;
+            current-microamp        = <150000>;
+            dischg-limit-microamp   = <1000000>;
+            vbus-limit-microamp     = <500000>;
+            thermistor-cold-millidegrees = <0>;
+            thermistor-cool-millidegrees = <10000>;
+            thermistor-warm-millidegrees = <45000>;
+            thermistor-hot-millidegrees  = <60000>;
+            thermistor-ohms = <10000>;
+            thermistor-beta = <3380>;
+        };
+    };
+
+    /*
+     * BMI270 — 6-axis IMU
+     * SDO MUST be tied to GND → address 0x68 (HIGH = 0x69).
+     *
+     * irq-gpios index 0 is INT1, which the Bosch driver uses for feature
+     * interrupts. CONFIG_BMI270_TRIGGER_GLOBAL_THREAD is enabled so the driver
+     * owns the pin and delivers the sensor's any-motion event as a standard
+     * SENSOR_TRIG_MOTION trigger — see the comment at the top of sensor.c.
+     *
+     * "bosch,bmi270-base" is listed first on purpose. The driver selects its
+     * feature set with DT_INST_NODE_HAS_COMPAT(inst, bosch_bmi270_base); without
+     * it the "max_fifo" set is chosen, whose any-motion feature registers are
+     * NULL, and SENSOR_TRIG_MOTION then faults inside the driver. The binding is
+     * matched from the second compatible.
+     *
+     * Range and output data rate are NOT devicetree properties for this part
+     * (bosch,bmi270.yaml declares only irq-gpios); sensor.c sets them at runtime
+     * with sensor_attr_set().
+     */
+    bmi270: bmi270@68 {
+        compatible = "bosch,bmi270-base", "bosch,bmi270";
+        reg = <0x68>;
+        status = "okay";
+        irq-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;   /* INT1 — P1.13, Arduino D11 */
+    };
+};
+
+/* ======================================================================
+ * I2C3 — modular expansion port (pogo pins: SDA, SCL, +3V3, GND)
+ *
+ * Deliberately NOT the main I2C2 bus: a module that hangs the bus (e.g.
+ * unplugged mid-transaction, holding SDA low) must not be able to take
+ * down the touch controller, PMIC and IMU with it.
+ *
+ * No child node here on purpose — modules are hot-plugged and discovered
+ * at runtime, so src/expansion/ grabs the bus device directly with
+ * DEVICE_DT_GET(DT_NODELABEL(i2c3)) and talks to the fixed module address.
+ *
+ * 100 kHz (not 400) — conservative for pogo-pin contact resistance and
+ * unshielded module wiring.  Raise once real modules prove reliable.
+ * ====================================================================== */
+
+&i2c3 {
+    status = "okay";
+    pinctrl-0 = <&i2c3_default>;
+    pinctrl-1 = <&i2c3_sleep>;
+    pinctrl-names = "default", "sleep";
+    clock-frequency = <100000>;
+};
+
+/* ======================================================================
+ * SPI4 — GC9A01 display (MIPI DBI) + MX25U51245G NOR flash
+ *
+ * The DK common DTSI defines this node as `arduino_spi` and sets
+ * cs-gpios = <&arduino_header 16> (= P1.12), which we use for PMIC_INT.
+ * The cs-gpios below deliberately override that.
+ * ====================================================================== */
+
+&spi4 {
+    status = "okay";
+    pinctrl-0 = <&spi4_disp_default>;
+    pinctrl-1 = <&spi4_disp_sleep>;
+    pinctrl-names = "default", "sleep";
+    /* Display CS index 0 (referenced by mipi_dbi_gc9a01 via spi-dev).
+     * Flash CS at index 1. */
+    cs-gpios = <&gpio1  7 GPIO_ACTIVE_LOW>,     /* P1.07 — Arduino D5  — DISP_CS  */
+               <&gpio1  8 GPIO_ACTIVE_LOW>;     /* P1.08 — Arduino D6  — FLASH_CS */
+
+    /* ---- Macronix MX25U51245G — 512 Mbit (64 MB) SPI NOR flash ---- */
+    mx25u51245g: mx25u51245g@1 {
+        compatible = "jedec,spi-nor";
+        reg = <1>;
+        spi-max-frequency = <80000000>;
+        jedec-id    = [c2 25 3a];
+        size        = <0x20000000>;             /* 512 Mbit */
+        has-dpd;
+        t-enter-dpd = <10000>;
+        t-exit-dpd  = <30000>;
+
+        partitions {
+            compatible = "fixed-partitions";
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            ext_storage_partition: partition@0 {
+                label = "ext-storage";
+                reg = <0x00000000 0x4000000>;   /* 64 MB */
+            };
+        };
+    };
+};
+
+/* ======================================================================
+ * Root-level nodes: watch buttons, backlight, MIPI DBI display, chosen
+ * ====================================================================== */
+
+/ {
+
+    /*
+     * Watch buttons on D12/D13 (external momentary switches to GND).
+     * Named watch_btn* to avoid conflicting with the DK's existing
+     * button0/button1 labels (which are the DK's own SW1-SW4 at P0.23-P0.24).
+     */
+    watch_buttons: watch_buttons {
+        compatible = "gpio-keys";
+
+        watch_btn0: watch_btn_0 {
+            gpios = <&gpio1 14 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;  /* P1.14 — D12 */
+            label = "Watch Button 0";
+            zephyr,code = <INPUT_KEY_0>;
+        };
+
+        watch_btn1: watch_btn_1 {
+            gpios = <&gpio1 15 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;  /* P1.15 — D13 */
+            label = "Watch Button 1";
+            zephyr,code = <INPUT_KEY_1>;
+        };
+    };
+
+    /*
+     * GC9A01 display — MIPI DBI over SPI3.
+     * In NCS v3.2.1 / Zephyr 3.7 the zephyr,mipi-dbi-spi node is root-level
+     * and references the SPI bus via spi-dev.  Display CS is cs-gpios[0] on
+     * &spi4 above.
+     */
+    mipi_dbi_gc9a01: mipi_dbi_gc9a01 {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi4>;
+        dc-gpios    = <&gpio1  9 GPIO_ACTIVE_HIGH>;  /* P1.09 — Arduino D7 — DISP_DC  */
+        reset-gpios = <&gpio1 10 GPIO_ACTIVE_LOW>;   /* P1.10 — Arduino D8 — DISP_RST */
+        write-only;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        gc9a01: gc9a01@0 {
+            compatible = "galaxycore,gc9x01x";
+            reg = <0>;
+            /* SPIM4 caps at 32 MHz. The old value of 64 MHz was silently
+             * clamped (to 8 MHz back when this was on SPIM3). */
+            mipi-max-frequency = <32000000>;
+            pixel-format = <PANEL_PIXEL_FORMAT_RGB_565>;
+            width  = <240>;
+            height = <240>;
+            display-inversion;
+        };
+    };
+
+    /* ---- Display backlight (GPIO on/off) ---- */
+    backlight: backlight {
+        compatible = "regulator-fixed";
+        regulator-name = "lcd-backlight";
+        enable-gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;  /* P1.11 — Arduino D9 — DISP_BL */
+        regulator-boot-on;
+    };
+
+    chosen {
+        zephyr,display = &gc9a01;
+        zephyr,touch   = &cst816s;
+    };
+};

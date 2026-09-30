@@ -1,0 +1,22 @@
+# FinWatch application Kconfig
+
+menu "FinWatch"
+
+config FINWATCH_EXPANSION_MOCK
+	bool "Use a mock expansion module instead of real I2C"
+	default n
+	help
+	  Replaces the I2C transport for the modular expansion port with an
+	  in-memory mock that serves a canned "Test Dial" descriptor and a
+	  rotating input report.
+
+	  This lets the enumeration state machine, descriptor validation and
+	  module UI be developed and tested before any physical expansion
+	  hardware exists. It also exposes fault-injection hooks so the
+	  host's descriptor-rejection paths can actually be exercised.
+
+	  Turn this off to talk to a real module over i2c3.
+
+endmenu
+
+source "Kconfig.zephyr"
