@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "flash")(type "KiCad")(uri "${KIPRJMOD}/components/MX25L51245GZ2I-08G.kicad_sym")(options "")(descr ""))
+  (lib (name "accelerometer")(type "KiCad")(uri "${KIPRJMOD}/components/BMI270.kicad_sym")(options "")(descr ""))
+)
